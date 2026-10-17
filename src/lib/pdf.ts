@@ -102,6 +102,7 @@ export async function organizePdf(
   order: readonly number[],
   deleted: readonly number[] = [],
   rotations: Readonly<Record<number, number>> = {},
+  blankAfter: readonly number[] = [],
 ): Promise<Uint8Array> {
   const source = await loadPdf(input);
   const excluded = new Set(deleted);
@@ -112,6 +113,10 @@ export async function organizePdf(
   pages.forEach((page, index) => {
     page.setRotation(degrees((page.getRotation().angle + (rotations[pageOrder[index]] ?? 0)) % 360));
     output.addPage(page);
+    if (blankAfter.includes(pageOrder[index])) {
+      const { width, height } = page.getSize();
+      output.addPage([width, height]);
+    }
   });
   return output.save();
 }
@@ -199,10 +204,11 @@ export async function protectPdf(
   input: Uint8Array,
   userPassword: string,
   permissions?: SecurityOptions['permissions'],
+  ownerPassword?: string,
 ): Promise<Uint8Array> {
   if (!userPassword) throw new Error('Enter a password to protect this PDF.');
   const document = await loadPdf(input);
-  document.encrypt({ userPassword, ownerPassword: `${userPassword}-${crypto.randomUUID()}`, permissions });
+  document.encrypt({ userPassword, ownerPassword: ownerPassword || `${userPassword}-${crypto.randomUUID()}`, permissions });
   return document.save();
 }
 

@@ -48,7 +48,11 @@ function canvasToBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob>
 
 async function openPdf(bytes: Uint8Array, password?: string): Promise<pdfjs.PDFDocumentProxy> {
   try {
-    const task = pdfjs.getDocument({ data: new Uint8Array(bytes), password });
+    const task = pdfjs.getDocument({
+      data: new Uint8Array(bytes),
+      password,
+      isEvalSupported: false,
+    } as unknown as Parameters<typeof pdfjs.getDocument>[0]);
     return await task.promise;
   } catch (error) {
     const message = error instanceof Error ? error.message : '';
@@ -139,11 +143,19 @@ export async function redactPdf(
   boxes: readonly RedactionBox[],
   password?: string,
 ): Promise<Uint8Array> {
-  const document = await openPdf(bytes, password);
-  const outputPages: RasterPage[] = [];
-  for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
-    const page = await document.getPage(pageNumber);
-    const viewport = page.getViewport({ scale: 1.5 });
+  const renderedDocument = await openPdf(bytes, password);
+  const sourceDocument = await loadPdf(bytes, password);
+  const outputDocument = await PDFDocument.create();
+  const scale = 2;
+  for (let pageNumber = 1; pageNumber <= renderedDocument.numPages; pageNumber += 1) {
+    const pageBoxes = boxes.filter((box) => box.page === pageNumber - 1);
+    if (!pageBoxes.length) {
+      const [page] = await outputDocument.copyPages(sourceDocument, [pageNumber - 1]);
+      outputDocument.addPage(page);
+      continue;
+    }
+    const page = await renderedDocument.getPage(pageNumber);
+    const viewport = page.getViewport({ scale });
     const canvas = globalThis.document.createElement('canvas');
     canvas.width = Math.ceil(viewport.width);
     canvas.height = Math.ceil(viewport.height);
@@ -152,18 +164,16 @@ export async function redactPdf(
     context.fillStyle = '#fff';
     context.fillRect(0, 0, canvas.width, canvas.height);
     await page.render({ canvas, canvasContext: context, viewport }).promise;
-    boxes.filter((box) => box.page === pageNumber - 1).forEach((box) => {
+    pageBoxes.forEach((box) => {
       context.fillStyle = '#000';
       context.fillRect(box.x * canvas.width, box.y * canvas.height, box.width * canvas.width, box.height * canvas.height);
     });
-    outputPages.push({
-      page: pageNumber,
-      width: canvas.width,
-      height: canvas.height,
-      blob: await canvasToBlob(canvas, 0.94),
-    });
+    const rendered = await canvasToBlob(canvas, 0.96);
+    const image = await outputDocument.embedJpg(new Uint8Array(await rendered.arrayBuffer()));
+    const outputPage = outputDocument.addPage([viewport.width / scale, viewport.height / scale]);
+    outputPage.drawImage(image, { x: 0, y: 0, width: viewport.width / scale, height: viewport.height / scale });
   }
-  return rasterPagesToPdf(outputPages);
+  return outputDocument.save();
 }
 
 export async function pdfToDocx(bytes: Uint8Array, password?: string): Promise<Blob> {

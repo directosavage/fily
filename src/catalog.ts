@@ -46,7 +46,7 @@ export interface ToolInfo {
   description: string;
   category: ToolCategory;
   icon: LucideIcon;
-  accepts: 'pdf' | 'image' | 'both' | 'two-images' | 'two-pdfs';
+  accepts: 'pdf' | 'image' | 'both' | 'word' | 'two-images' | 'two-pdfs';
   multiple?: boolean;
 }
 
@@ -70,6 +70,7 @@ export const tools: ToolInfo[] = [
   { slug: 'pdf-to-text', name: 'PDF to text', description: 'Extract selectable text into a plain text file.', category: 'Convert', icon: AlignLeft, accepts: 'pdf' },
   { slug: 'pdf-to-markdown', name: 'PDF to Markdown', description: 'Extract text with simple heading-size detection.', category: 'Convert', icon: BookOpenText, accepts: 'pdf' },
   { slug: 'pdf-to-word', name: 'PDF to Word', description: 'Create an editable DOCX from extracted PDF text.', category: 'Convert', icon: FileText, accepts: 'pdf' },
+  { slug: 'word-to-pdf', name: 'Word to PDF', description: 'Convert headings, paragraphs, lists, tables, and images to paginated PDF.', category: 'Convert', icon: FileText, accepts: 'word' },
   { slug: 'watermark', name: 'Watermark PDF', description: 'Add your own text watermark to every page.', category: 'Edit', icon: Stamp, accepts: 'pdf' },
   { slug: 'page-numbers', name: 'Page numbers', description: 'Add clean page numbers to your document.', category: 'Edit', icon: Hash, accepts: 'pdf' },
   { slug: 'sign', name: 'Sign PDF', description: 'Place a typed signature or your own signature image.', category: 'Edit', icon: FileSignature, accepts: 'pdf' },

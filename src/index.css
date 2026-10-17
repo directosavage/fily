@@ -1,5 +1,48 @@
 @import "tailwindcss";
 
+.page-editor { margin-top: 14px; }
+.page-editor-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; margin-bottom: 10px; }
+.page-editor-picker { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 12px; }
+.page-editor-picker select { width: auto; min-width: 92px; padding: 7px; }
+.page-editor-hint { color: var(--muted); font-size: 11px; }
+.page-editor-stage { max-height: 72vh; overflow: auto; border: 1px solid var(--line); border-radius: 10px; background: #e9ebf2; padding: 12px; }
+.page-editor-surface { position: relative; width: min(100%, 820px); margin: 0 auto; background: white; box-shadow: 0 2px 12px #14182a26; touch-action: none; user-select: none; }
+.page-editor-pdf-canvas,.page-editor-overlay { position: absolute; inset: 0; width: 100%; height: 100%; }
+.page-editor-pdf-canvas { display: block; }
+.page-editor-overlay { overflow: hidden; }
+.page-editor-surface.placing { cursor: crosshair; }
+.page-editor-item { position: absolute; box-sizing: border-box; min-width: 8px; min-height: 8px; display: flex; align-items: center; justify-content: center; }
+.page-editor-item.selected { outline: 2px solid #5148d8; }
+.page-editor-item.rectangle { border: 2px solid currentColor; background: transparent; }
+.page-editor-item.highlight { background: #fde04766; }
+.page-editor-item.redact { background: #000; }
+.page-editor-item.pen { border: 1px dashed #64748b; background: #fff2; }
+.page-editor-item textarea { resize: none; border: 0; outline: 0; background: transparent; width: 100%; height: 100%; min-height: 100%; overflow: hidden; padding: 2px 4px; text-align: left; line-height: 1.1; }
+.page-editor-item.image img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+.page-editor-item svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.page-editor-item polyline { fill: none; stroke: currentColor; stroke-width: .012; stroke-linecap: round; stroke-linejoin: round; }
+.page-editor-resize { position: absolute; right: -7px; bottom: -7px; width: 14px; height: 14px; border: 2px solid white; border-radius: 50%; background: #5148d8; touch-action: none; }
+.signature-pad { border: 1px solid var(--line); border-radius: 9px; background: white; overflow: hidden; }
+.signature-pad canvas { display: block; width: 100%; height: 140px; touch-action: none; cursor: crosshair; }
+.signature-pad-actions { display: flex; gap: 7px; padding: 7px; }
+.sort-handle { cursor: grab; touch-action: none; }
+.reorder-target { border-color: #635bdb !important; background: #f1f0ff !important; }
+.organize-page.dragging,.file-row.dragging { opacity: .48; }
+.id-card-editors { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+.id-card-side { min-width: 0; padding: 10px; border: 1px solid var(--line); border-radius: 10px; }
+.id-card-side h3 { margin: 0 0 8px; font-size: 13px; }
+@media(max-width:650px) {
+  .id-card-editors { grid-template-columns: 1fr; }
+  .page-editor-controls .page-editor-hint { flex-basis: 100%; }
+  .page-editor-stage { padding: 5px; }
+}
+@media(prefers-color-scheme:dark) {
+  .page-editor-stage { background:#11131d; }
+  .page-editor-picker { color:#a8adbd; }
+  .id-card-side { border-color:#303444; background:#171a26; }
+  .id-card-side h3 { color:#d9dbea; }
+  .signature-pad { background:#fff; }
+}
 :root {
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: #20243b;

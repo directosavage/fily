@@ -24,5 +24,17 @@ export default defineConfig({
     }),
   ],
   worker: { format: 'es' },
-  build: { target: 'es2022' },
+  build: {
+    target: 'es2022',
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('/node_modules/pdfjs-dist/')) return 'pdfjs';
+          if (id.includes('/node_modules/@cantoo/pdf-lib/')) return 'pdf-lib';
+          if (id.includes('/node_modules/mammoth/')) return 'word';
+          if (id.includes('/node_modules/tesseract.js/')) return 'ocr';
+        },
+      },
+    },
+  },
 });

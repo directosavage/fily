@@ -13,6 +13,7 @@ import {
   X,
 } from 'lucide-react';
 import JSZip from 'jszip';
+import CornerCropEditor from '../components/CornerCropEditor';
 import { detectDocumentCorners, imageFileToPixels, imagesToPdf, pixelsToBlob, rotatePixels, warpAndFilter } from '../lib/images';
 import type { ImageFilter, PageSize } from '../lib/images';
 import type { PixelImage, Point } from '../lib/warp';
@@ -51,7 +52,6 @@ export default function ScanTool() {
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState('');
   const [downloads, setDownloads] = useState<DownloadFile[]>([]);
-  const [dragging, setDragging] = useState<number | null>(null);
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState('');
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -152,14 +152,6 @@ export default function ScanTool() {
     setPages((current) => current.map((page, index) => (index === selected ? updater(page) : page)));
   };
 
-  const updateCorner = (index: number, point: Point) => {
-    updateSelected((page) => {
-      const corners = [...page.corners] as [Point, Point, Point, Point];
-      corners[index] = point;
-      return { ...page, corners };
-    });
-  };
-
   const reorder = (from: number, direction: -1 | 1) => {
     const target = from + direction;
     if (target < 0 || target >= pages.length) return;
@@ -176,17 +168,6 @@ export default function ScanTool() {
     if (page) URL.revokeObjectURL(page.preview);
     setPages((current) => current.filter((_, index) => index !== selected));
     setSelected((current) => Math.max(0, Math.min(current, pages.length - 2)));
-  };
-
-  const moveCorner = (event: React.PointerEvent<SVGSVGElement>) => {
-    if (dragging === null || !selectedPage) return;
-    const rect = event.currentTarget.getBoundingClientRect();
-    const x = ((event.clientX - rect.left) / rect.width) * selectedPage.pixels.width;
-    const y = ((event.clientY - rect.top) / rect.height) * selectedPage.pixels.height;
-    updateCorner(dragging, {
-      x: Math.max(0, Math.min(selectedPage.pixels.width - 1, x)),
-      y: Math.max(0, Math.min(selectedPage.pixels.height - 1, y)),
-    });
   };
 
   const process = async () => {
@@ -250,32 +231,14 @@ export default function ScanTool() {
           )}
           {selectedPage ? (
             <>
-              <div className="scan-preview">
-                <img src={selectedPage.preview} alt={`Scan page ${selected + 1}`} style={{ filter: previewFilter }} />
-                <svg
-                  className="scan-overlay"
-                  viewBox={`0 0 ${selectedPage.pixels.width} ${selectedPage.pixels.height}`}
-                  preserveAspectRatio="none"
-                  onPointerMove={moveCorner}
-                  onPointerUp={() => setDragging(null)}
-                  onPointerCancel={() => setDragging(null)}
-                >
-                  <polygon points={selectedPage.corners.map((point) => `${point.x},${point.y}`).join(' ')} />
-                  {selectedPage.corners.map((point, index) => (
-                    <circle
-                      key={index}
-                      cx={point.x}
-                      cy={point.y}
-                      r={Math.max(8, selectedPage.pixels.width / 45)}
-                      onPointerDown={(event) => {
-                        event.preventDefault();
-                        setDragging(index);
-                        event.currentTarget.setPointerCapture(event.pointerId);
-                      }}
-                    />
-                  ))}
-                </svg>
-              </div>
+              <CornerCropEditor
+                source={selectedPage.preview}
+                alt={`Scan page ${selected + 1}`}
+                pixels={selectedPage.pixels}
+                corners={selectedPage.corners}
+                filter={previewFilter}
+                onChange={(corners) => updateSelected((page) => ({ ...page, corners }))}
+              />
               <div className="scan-toolbar">
                 <button className="chip-button" type="button" onClick={() => updateSelected((page) => ({ ...page, corners: detectDocumentCorners(page.pixels) }))}><ScanLine size={13} /> Auto detect</button>
                 <button className="chip-button" type="button" onClick={() => updateSelected((page) => ({ ...page, rotation: (page.rotation + 90) % 360 }))}><RotateCw size={13} /> Rotate</button>
