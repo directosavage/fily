@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { PDFDocument } from '@cantoo/pdf-lib';
-import * as pdfjs from 'pdfjs-dist';
-import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs';
+import workerUrl from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url';
 import { ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import type { PageEditorItem, PageGeometry } from '../lib/page-editor';
 

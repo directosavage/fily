@@ -1,7 +1,7 @@
 import { PDFDocument } from '@cantoo/pdf-lib';
 import { Document, PageBreak, Packer, Paragraph, TextRun } from 'docx';
-import * as pdfjs from 'pdfjs-dist';
-import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs';
+import workerUrl from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url';
 import { loadPdf } from './pdf';
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;

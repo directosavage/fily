@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { Dispatch, PointerEvent as ReactPointerEvent, ReactNode, SetStateAction } from 'react';
 import '@fontsource/dancing-script/500.css';
 import '@fontsource/dancing-script/700.css';
@@ -142,7 +142,7 @@ const toolHelp: Record<string, string> = {
   'scan-to-pdf': 'Take photos with your camera or choose existing images. Reorder pages and adjust the crop before exporting.',
   'id-card': 'Select the front and back photos in that order. Both sides will be centered on one A4 page.',
   ocr: 'OCR uses on-device Tesseract language data. The first recognition may take a moment while the language model loads.',
-  'qr-scanner': 'BarcodeDetector availability depends on your browser. This tool does not send photos anywhere.',
+  'qr-scanner': 'QR codes are read locally, using browser barcode detection when available.',
   compress: 'Compression rasterizes pages to JPEG images. Text selection and vectors are not preserved; the original is kept if the compressed output is larger.',
   redact: 'Pages containing redaction boxes are rasterized; untouched pages remain vector. Covered content is removed from the output.',
   'pdf-to-word': 'Text is extracted page by page into editable paragraphs. Original layout and images are not preserved.',
@@ -787,10 +787,11 @@ function Field({
   onChange: (value: string) => void;
   type?: 'text' | 'number' | 'password';
 }) {
+  const inputId = useId();
   return (
     <div className="field">
-      <label>{label}</label>
-      <input type={type} value={value} onChange={(event) => onChange(event.target.value)} />
+      <label htmlFor={inputId}>{label}</label>
+      <input id={inputId} type={type} value={value} onChange={(event) => onChange(event.target.value)} />
     </div>
   );
 }

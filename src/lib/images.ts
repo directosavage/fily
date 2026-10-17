@@ -1,4 +1,5 @@
 import { PDFDocument, PageSizes } from '@cantoo/pdf-lib';
+import jsQR from 'jsqr';
 import type { PixelImage, Point } from './warp';
 import { homographyFromPoints, warpPerspective } from './warp';
 
@@ -104,73 +105,120 @@ function localMean(
 
 export function detectDocumentCorners(image: PixelImage): [Point, Point, Point, Point] {
   const { width, height, data } = image;
-  const scale = Math.min(1, 256 / Math.max(width, height));
-  const smallWidth = Math.max(4, Math.round(width * scale));
-  const smallHeight = Math.max(4, Math.round(height * scale));
-  const gray = new Float32Array(smallWidth * smallHeight);
-  for (let y = 0; y < smallHeight; y += 1) {
-    for (let x = 0; x < smallWidth; x += 1) {
-      const sx = Math.min(width - 1, Math.round(x / scale));
-      const sy = Math.min(height - 1, Math.round(y / scale));
-      const offset = (sy * width + sx) * 4;
-      gray[y * smallWidth + x] =
-        0.299 * data[offset] + 0.587 * data[offset + 1] + 0.114 * data[offset + 2];
-    }
-  }
-  const edges: Array<{ x: number; y: number; weight: number }> = [];
-  for (let y = 2; y < smallHeight - 2; y += 1) {
-    for (let x = 2; x < smallWidth - 2; x += 1) {
-      const gx =
-        -gray[(y - 1) * smallWidth + x - 1] -
-        2 * gray[y * smallWidth + x - 1] -
-        gray[(y + 1) * smallWidth + x - 1] +
-        gray[(y - 1) * smallWidth + x + 1] +
-        2 * gray[y * smallWidth + x + 1] +
-        gray[(y + 1) * smallWidth + x + 1];
-      const gy =
-        -gray[(y - 1) * smallWidth + x - 1] -
-        2 * gray[(y - 1) * smallWidth + x] -
-        gray[(y - 1) * smallWidth + x + 1] +
-        gray[(y + 1) * smallWidth + x - 1] +
-        2 * gray[(y + 1) * smallWidth + x] +
-        gray[(y + 1) * smallWidth + x + 1];
-      const weight = Math.hypot(gx, gy);
-      if (weight > 90) edges.push({ x, y, weight });
-    }
-  }
-  const corners: [Point, Point, Point, Point] = [
+  const fallback: [Point, Point, Point, Point] = [
     { x: width * 0.04, y: height * 0.04 },
     { x: width * 0.96, y: height * 0.04 },
     { x: width * 0.96, y: height * 0.96 },
     { x: width * 0.04, y: height * 0.96 },
   ];
-  if (edges.length < 12) return corners;
-  const bounds = [
-    edges.reduce((best, point) => (point.weight > best.weight ? point : best)),
-    ...(['ne', 'se', 'sw'] as const).map((quadrant) =>
-      edges
-        .filter(({ x, y }) => {
-          const right = x > smallWidth / 2;
-          const bottom = y > smallHeight / 2;
-          return quadrant === 'ne' ? right && !bottom : quadrant === 'se' ? right && bottom : !right && bottom;
-        })
-        .reduce((best, point) => (point.weight > best.weight ? point : best), { x: 0, y: 0, weight: -1 }),
-    ),
-  ];
-  const [northWest, northEast, southEast, southWest] = bounds;
-  if ([northEast, southEast, southWest].some((point) => point.weight < 0)) return corners;
-  const mapped: [Point, Point, Point, Point] = [
-    { x: northWest.x / scale, y: northWest.y / scale },
-    { x: northEast.x / scale, y: northEast.y / scale },
-    { x: southEast.x / scale, y: southEast.y / scale },
-    { x: southWest.x / scale, y: southWest.y / scale },
-  ];
-  try {
-    homographyFromPoints(mapped, corners);
-    return mapped;
-  } catch {
-    return corners;
+  const scale = Math.min(1, 320 / Math.max(width, height));
+  const w = Math.max(4, Math.round(width * scale));
+  const h = Math.max(4, Math.round(height * scale));
+  const gray = new Uint8Array(w * h);
+  const histogram = new Uint32Array(256);
+  for (let y = 0; y < h; y += 1) {
+    for (let x = 0; x < w; x += 1) {
+      const sx = Math.min(width - 1, Math.round(x / scale));
+      const sy = Math.min(height - 1, Math.round(y / scale));
+      const offset = (sy * width + sx) * 4;
+      const value = Math.round(0.299 * data[offset] + 0.587 * data[offset + 1] + 0.114 * data[offset + 2]);
+      gray[y * w + x] = value;
+      histogram[value] += 1;
+    }
   }
+  const threshold = otsuThreshold(histogram, w * h);
+  const mask = new Uint8Array(w * h);
+  for (let i = 0; i < mask.length; i += 1) mask[i] = gray[i] > threshold ? 1 : 0;
+
+  const labels = new Int32Array(w * h).fill(-1);
+  let bestLabel = -1;
+  let bestArea = 0;
+  let nextLabel = 0;
+  const stack: number[] = [];
+  for (let start = 0; start < mask.length; start += 1) {
+    if (!mask[start] || labels[start] !== -1) continue;
+    let area = 0;
+    stack.push(start);
+    labels[start] = nextLabel;
+    while (stack.length) {
+      const index = stack.pop() as number;
+      area += 1;
+      const x = index % w;
+      const neighbours = [index - 1, index + 1, index - w, index + w];
+      for (let n = 0; n < 4; n += 1) {
+        const next = neighbours[n];
+        if (next < 0 || next >= mask.length) continue;
+        if ((n === 0 && x === 0) || (n === 1 && x === w - 1)) continue;
+        if (mask[next] && labels[next] === -1) {
+          labels[next] = nextLabel;
+          stack.push(next);
+        }
+      }
+    }
+    if (area > bestArea) {
+      bestArea = area;
+      bestLabel = nextLabel;
+    }
+    nextLabel += 1;
+  }
+  if (bestLabel < 0 || bestArea < w * h * 0.12 || bestArea > w * h * 0.97) return fallback;
+
+  let tl = { x: 0, y: 0, score: Infinity };
+  let tr = { x: 0, y: 0, score: -Infinity };
+  let br = { x: 0, y: 0, score: -Infinity };
+  let bl = { x: 0, y: 0, score: Infinity };
+  for (let y = 0; y < h; y += 1) {
+    for (let x = 0; x < w; x += 1) {
+      if (labels[y * w + x] !== bestLabel) continue;
+      const sum = x + y;
+      const diff = x - y;
+      if (sum < tl.score) tl = { x, y, score: sum };
+      if (sum > br.score) br = { x, y, score: sum };
+      if (diff > tr.score) tr = { x, y, score: diff };
+      if (diff < bl.score) bl = { x, y, score: diff };
+    }
+  }
+  const toFull = (point: { x: number; y: number }, dx: number, dy: number): Point => ({
+    x: Math.min(width - 1, Math.max(0, (point.x + dx) / scale)),
+    y: Math.min(height - 1, Math.max(0, (point.y + dy) / scale)),
+  });
+  const detected: [Point, Point, Point, Point] = [toFull(tl, 0, 0), toFull(tr, 1, 0), toFull(br, 1, 1), toFull(bl, 0, 1)];
+  const minSide = Math.min(width, height) * 0.2;
+  const sides = detected.map((point, index) => {
+    const next = detected[(index + 1) % 4];
+    return Math.hypot(next.x - point.x, next.y - point.y);
+  });
+  if (sides.some((side) => side < minSide)) return fallback;
+  try {
+    homographyFromPoints(detected, fallback);
+    return detected;
+  } catch {
+    return fallback;
+  }
+}
+
+function otsuThreshold(histogram: Uint32Array, total: number): number {
+  let sum = 0;
+  for (let i = 0; i < 256; i += 1) sum += i * histogram[i];
+  let background = 0;
+  let backgroundSum = 0;
+  let best = 0;
+  let bestVariance = -1;
+  for (let t = 0; t < 256; t += 1) {
+    background += histogram[t];
+    if (background === 0) continue;
+    const foreground = total - background;
+    if (foreground === 0) break;
+    backgroundSum += t * histogram[t];
+    const meanBackground = backgroundSum / background;
+    const meanForeground = (sum - backgroundSum) / foreground;
+    const variance = background * foreground * (meanBackground - meanForeground) ** 2;
+    if (variance > bestVariance) {
+      bestVariance = variance;
+      best = t;
+    }
+  }
+  return best;
 }
 
 export function warpAndFilter(
@@ -258,10 +306,18 @@ export async function scanBarcode(image: Blob): Promise<Array<{ rawValue: string
   const browser = window as Window & {
     BarcodeDetector?: new () => { detect(source: ImageBitmap): Promise<Array<{ rawValue: string; format: string }>> };
   };
-  if (!browser.BarcodeDetector) throw new Error('QR scanning is not supported by this browser. Try Chrome on a recent device.');
   const bitmap = await createImageBitmap(image);
   try {
-    return await new browser.BarcodeDetector().detect(bitmap);
+    if (browser.BarcodeDetector) return await new browser.BarcodeDetector().detect(bitmap);
+    const canvas = document.createElement('canvas');
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('This browser could not prepare the image for QR scanning.');
+    context.drawImage(bitmap, 0, 0);
+    const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+    const code = jsQR(pixels.data, pixels.width, pixels.height, { inversionAttempts: 'attemptBoth' });
+    return code ? [{ rawValue: code.data, format: 'qr_code' }] : [];
   } finally {
     bitmap.close();
   }

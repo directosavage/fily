@@ -139,3 +139,36 @@ describe('image geometry and filters', () => {
     }
   });
 });
+
+it('detectDocumentCorners finds a bright skewed sheet on a dark background', async () => {
+  const { detectDocumentCorners } = await import('../src/lib/images');
+  const width = 400;
+  const height = 300;
+  const data = new Uint8ClampedArray(width * height * 4);
+  const quad = [
+    { x: 90, y: 40 },
+    { x: 330, y: 70 },
+    { x: 300, y: 270 },
+    { x: 60, y: 240 },
+  ];
+  const inside = (px: number, py: number) =>
+    quad.every((point, index) => {
+      const next = quad[(index + 1) % 4];
+      return (next.x - point.x) * (py - point.y) - (next.y - point.y) * (px - point.x) >= 0;
+    });
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const value = inside(x, y) ? 235 : 70;
+      const offset = (y * width + x) * 4;
+      data[offset] = value;
+      data[offset + 1] = value;
+      data[offset + 2] = value;
+      data[offset + 3] = 255;
+    }
+  }
+  const corners = detectDocumentCorners({ width, height, data });
+  corners.forEach((corner, index) => {
+    expect(Math.abs(corner.x - quad[index].x)).toBeLessThan(6);
+    expect(Math.abs(corner.y - quad[index].y)).toBeLessThan(6);
+  });
+});

@@ -25,7 +25,7 @@ export default defineConfig({
   ],
   worker: { format: 'es' },
   build: {
-    target: 'es2022',
+    target: ['es2020', 'chrome90', 'safari14'],
     rollupOptions: {
       output: {
         manualChunks(id) {
