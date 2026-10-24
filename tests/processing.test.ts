@@ -172,3 +172,17 @@ it('detectDocumentCorners finds a bright skewed sheet on a dark background', asy
     expect(Math.abs(corner.y - quad[index].y)).toBeLessThan(6);
   });
 });
+
+it('textToPdf paginates text and detectFileKind routes file types', async () => {
+  const { textToPdf, detectFileKind } = await import('../src/lib/any-to-pdf');
+  const pdf = await textToPdf('line one\nline two\n' + 'x'.repeat(400), 'notes.txt');
+  const document = await PDFDocument.load(pdf);
+  expect(document.getPageCount()).toBeGreaterThanOrEqual(1);
+  const file = (name: string, type = '') => new File([], name, { type });
+  expect(detectFileKind(file('a.pdf', 'application/pdf'))).toBe('pdf');
+  expect(detectFileKind(file('b.png', 'image/png'))).toBe('image');
+  expect(detectFileKind(file('c.docx'))).toBe('word');
+  expect(detectFileKind(file('d.html', 'text/html'))).toBe('html');
+  expect(detectFileKind(file('e.csv', 'text/csv'))).toBe('text');
+  expect(detectFileKind(file('f.xyz', 'application/octet-stream'))).toBe('unsupported');
+});

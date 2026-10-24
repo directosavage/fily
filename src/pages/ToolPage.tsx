@@ -41,6 +41,7 @@ import {
 } from '../lib/pdf';
 import type { FormFieldInfo } from '../lib/pdf';
 import { parsePageRanges } from '../lib/ranges';
+import { detectFileKind } from '../lib/any-to-pdf';
 import type { PdfArtifact } from '../lib/pdf';
 import { flattenPageItems } from '../lib/page-editor';
 import type { PageEditorItem } from '../lib/page-editor';
@@ -184,6 +185,7 @@ export default function ToolPage() {
   const [result, setResult] = useState<ToolResult | null>(null);
 
   const accept = tool?.accepts === 'word' ? '.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document' :
+    tool?.accepts === 'any' ? '.pdf,.docx,.html,.htm,.txt,.md,.csv,.log,image/*,text/*,application/pdf' :
     tool?.accepts === 'pdf' || tool?.accepts === 'two-pdfs' ? '.pdf,application/pdf' :
     tool?.accepts === 'image' || tool?.accepts === 'two-images' ? 'image/*' : '.pdf,application/pdf,image/*';
   const multiple = !!tool && (tool.multiple || tool.accepts === 'two-images' || tool.accepts === 'two-pdfs');
@@ -236,10 +238,11 @@ export default function ToolPage() {
       if (tool.accepts === 'word') return file.name.toLowerCase().endsWith('.docx') || file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
       if (tool.accepts === 'pdf' || tool.accepts === 'two-pdfs') return file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
       if (tool.accepts === 'image' || tool.accepts === 'two-images') return file.type.startsWith('image/');
+      if (tool.accepts === 'any') return detectFileKind(file) !== 'unsupported';
       return file.type.startsWith('image/') || file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
     });
     if (!valid.length) {
-      setError(tool.accepts === 'word' ? 'Choose a DOCX file to continue.' : tool.accepts.includes('pdf') ? 'Choose a PDF file to continue.' : 'Choose a supported image file to continue.');
+      setError(tool.accepts === 'word' ? 'Choose a DOCX file to continue.' : tool.accepts === 'any' ? 'Choose PDF, Word, HTML, image, or text files to continue.' : tool.accepts.includes('pdf') ? 'Choose a PDF file to continue.' : 'Choose a supported image file to continue.');
       return;
     }
     if (valid.length !== incoming.length) setError('Some files were skipped because they do not match this tool.');
@@ -307,7 +310,24 @@ export default function ToolPage() {
       const textBlob = (data: string, name = 'fily-output.txt') =>
         output.push({ name, blob: new Blob([data], { type: 'text/plain' }) });
 
-      if (slug === 'merge') {
+      if (slug === 'files-to-pdf') {
+        const { fileToPdfBytes } = await import('../lib/any-to-pdf');
+        const parts: Uint8Array[] = [];
+        const failed: string[] = [];
+        let index = 0;
+        for (const { file } of files) {
+          try {
+            parts.push(await fileToPdfBytes(file));
+          } catch {
+            failed.push(file.name);
+          }
+          index += 1;
+          setProgress(10 + Math.round((index / files.length) * 80));
+        }
+        if (!parts.length) throw new Error('None of the files could be converted.');
+        pdfBlob(parts.length > 1 ? await mergePdfs(parts) : parts[0], 'combined.pdf');
+        if (failed.length) note = `Skipped unreadable files: ${failed.join(', ')}`;
+      } else if (slug === 'merge') {
         pdfBlob(await mergePdfs(bytes), 'merged-document.pdf');
       } else if (slug === 'split') {
         const parts: PdfArtifact[] = options.everyPage ? await splitEveryPage(primary) : await splitPdfByRanges(primary, options.range);
