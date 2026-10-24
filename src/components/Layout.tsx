@@ -1,10 +1,17 @@
-import { ArrowLeft, FileText, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, FileText, Moon, ShieldCheck, Sun } from 'lucide-react';
 import { Link, useLocation } from 'react-router';
+import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
+import { Button } from './ui/button';
 
 export default function Layout({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
   const inTool = pathname.startsWith('/tools/');
+  const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'));
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', dark);
+    localStorage.setItem('documax-theme', dark ? 'dark' : 'light');
+  }, [dark]);
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -23,6 +30,14 @@ export default function Layout({ children }: { children: ReactNode }) {
               </Link>
             )}
             <span className="privacy-pill"><ShieldCheck size={15} /> Private by design</span>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
+              onClick={() => setDark((value) => !value)}
+            >
+              {dark ? <Sun /> : <Moon />}
+            </Button>
           </div>
         </div>
       </header>
