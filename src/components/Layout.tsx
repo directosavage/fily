@@ -10,18 +10,18 @@ export default function Layout({ children }: { children: ReactNode }) {
   const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'));
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark);
-    localStorage.setItem('documax-theme', dark ? 'dark' : 'light');
+    localStorage.setItem('fily-theme', dark ? 'dark' : 'light');
   }, [dark]);
   return (
     <div className="app-shell">
       <header className="topbar">
         <div className="topbar-inner">
-          <Link className="brand" to="/" aria-label="DocuMax home">
+          <Link className="brand" to="/" aria-label="Fily home">
             <span className="brand-mark" aria-hidden="true">
               <FileText size={20} strokeWidth={2.2} />
               <span className="brand-spark">+</span>
             </span>
-            <span>Docu<span className="brand-accent">Max</span></span>
+            <span>Fi<span className="brand-accent">ly</span></span>
           </Link>
           <div className="topbar-actions">
             {inTool && (
@@ -43,7 +43,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       </header>
       <main>{children}</main>
       <footer className="site-footer">
-        <span className="brand-mini"><span className="brand-accent">Docu</span>Max</span>
+        <span className="brand-mini"><span className="brand-accent">Fi</span>ly</span>
         <span>Files are processed on your device</span>
       </footer>
     </div>

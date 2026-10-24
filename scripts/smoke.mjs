@@ -12,7 +12,7 @@ import { Document, HeadingLevel, ImageRun, Packer, Paragraph, Table, TableCell, 
 import JSZip from 'jszip';
 
 const baseUrl = process.env.DOCUMAX_SMOKE_URL ?? 'http://127.0.0.1:4173';
-const screenshotDir = process.env.DOCUMAX_SHOTS_DIR ?? '/home/ubuntu/documax-shots';
+const screenshotDir = process.env.DOCUMAX_SHOTS_DIR ?? '/home/ubuntu/fily-shots';
 const qrValue = 'DOCUMAX-QR-137';
 const userPassword = 'smoke-user';
 const ownerPassword = 'smoke-owner';

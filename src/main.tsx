@@ -4,7 +4,7 @@ import { registerSW } from 'virtual:pwa-register';
 import App from './App';
 import './index.css';
 
-const storedTheme = localStorage.getItem('documax-theme');
+const storedTheme = localStorage.getItem('fily-theme');
 const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
 document.documentElement.classList.toggle('dark', storedTheme === 'dark' || (storedTheme === null && systemDark));
 

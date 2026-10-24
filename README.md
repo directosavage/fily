@@ -1,6 +1,6 @@
-# DocuMax
+# Fily
 
-DocuMax is a client-side document workspace for scanning, organizing, converting, editing, and protecting PDFs. Files are processed in the browser and are never uploaded.
+Fily is a client-side document workspace for scanning, organizing, converting, editing, and protecting PDFs. Files are processed in the browser and are never uploaded.
 
 ## Features
 

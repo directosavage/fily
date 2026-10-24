@@ -11,8 +11,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg'],
       manifest: {
-        name: 'DocuMax',
-        short_name: 'DocuMax',
+        name: 'Fily',
+        short_name: 'Fily',
         description: 'Private document scanning and PDF tools.',
         theme_color: '#4f46e5',
         background_color: '#f7f8fc',

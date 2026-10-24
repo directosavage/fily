@@ -111,7 +111,7 @@ export default function Home() {
       </section>
       <aside className="privacy-banner">
         <span className="privacy-banner-icon"><ShieldCheck size={19} /></span>
-        <div><strong>Your documents stay yours.</strong><span>DocuMax works right in your browser. Your files aren’t uploaded or stored by us.</span></div>
+        <div><strong>Your documents stay yours.</strong><span>Fily works right in your browser. Your files aren’t uploaded or stored by us.</span></div>
         <span className="privacy-banner-badge">ON-DEVICE PROCESSING</span>
       </aside>
     </div>

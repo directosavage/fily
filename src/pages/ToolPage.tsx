@@ -114,7 +114,7 @@ const initialOptions: Options = {
   margin: 24,
   pageSize: 'a4',
   quality: 'medium',
-  text: 'DocuMax',
+  text: 'Fily',
   fontSize: 42,
   opacity: 0.18,
   rotation: -30,
@@ -302,9 +302,9 @@ export default function ToolPage() {
       let text: string | undefined;
       let note: string | undefined;
       const primary = bytes[0];
-      const pdfBlob = (data: Uint8Array, name = 'documax-output.pdf') =>
+      const pdfBlob = (data: Uint8Array, name = 'fily-output.pdf') =>
         output.push({ name, blob: new Blob([data], { type: 'application/pdf' }) });
-      const textBlob = (data: string, name = 'documax-output.txt') =>
+      const textBlob = (data: string, name = 'fily-output.txt') =>
         output.push({ name, blob: new Blob([data], { type: 'text/plain' }) });
 
       if (slug === 'merge') {
@@ -922,7 +922,7 @@ function ResultPanel({ result, onStartOver }: { result: ToolResult; onStartOver:
     const zip = new JSZip();
     files.forEach((file) => zip.file(file.name, file.blob));
     void zip.generateAsync({ type: 'blob' }).then((blob) => {
-      if (alive) setZipFile({ name: 'documax-files.zip', blob });
+      if (alive) setZipFile({ name: 'fily-files.zip', blob });
     });
     return () => { alive = false; };
   }, [files, zipMultiple]);
