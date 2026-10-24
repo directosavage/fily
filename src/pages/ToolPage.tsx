@@ -8,6 +8,7 @@ import {
   Check,
   ChevronRight,
   CircleHelp,
+  Download,
   FileText,
   LoaderCircle,
   LockKeyhole,
@@ -178,6 +179,8 @@ export default function ToolPage() {
   const [cardCrops, setCardCrops] = useState<Array<CardCrop | null>>([null, null]);
   const [pageThumbnails, setPageThumbnails] = useState<string[]>([]);
   const [pageCount, setPageCount] = useState(0);
+  const [combinedBytes, setCombinedBytes] = useState<Uint8Array | null>(null);
+  const [combineNote, setCombineNote] = useState('');
   const [dragging, setDragging] = useState(false);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -207,6 +210,8 @@ export default function ToolPage() {
     setBlankAfter([]);
     setPageThumbnails([]);
     setPageCount(0);
+    setCombinedBytes(null);
+    setCombineNote('');
     setError('');
     setResult(null);
   }, [slug]);
@@ -251,6 +256,16 @@ export default function ToolPage() {
     const mapped = limited.map((file) => ({ file, id: crypto.randomUUID() }));
     setFiles((current) => multiple ? [...current, ...mapped] : mapped);
     setResult(null);
+    if (tool.slug === 'files-to-pdf') {
+      setCombinedBytes(null);
+      setCombineNote('');
+      setPageOrder([]);
+      setDeletedPages([]);
+      setPageRotations({});
+      setBlankAfter([]);
+      setPageThumbnails([]);
+      setPageCount(0);
+    }
     if (tool.slug === 'organize' || tool.slug === 'fill-forms') {
       try {
         const bytes = new Uint8Array(await limited[0].arrayBuffer());
@@ -281,6 +296,16 @@ export default function ToolPage() {
   const removeFile = (id: string) => {
     setFiles((current) => current.filter((item) => item.id !== id));
     setResult(null);
+    if (slug === 'files-to-pdf') {
+      setCombinedBytes(null);
+      setCombineNote('');
+      setPageOrder([]);
+      setDeletedPages([]);
+      setPageRotations({});
+      setBlankAfter([]);
+      setPageThumbnails([]);
+      setPageCount(0);
+    }
   };
 
   const moveFile = (index: number, by: -1 | 1) => {
@@ -311,22 +336,39 @@ export default function ToolPage() {
         output.push({ name, blob: new Blob([data], { type: 'text/plain' }) });
 
       if (slug === 'files-to-pdf') {
-        const { fileToPdfBytes } = await import('../lib/any-to-pdf');
-        const parts: Uint8Array[] = [];
-        const failed: string[] = [];
-        let index = 0;
-        for (const { file } of files) {
-          try {
-            parts.push(await fileToPdfBytes(file));
-          } catch {
-            failed.push(file.name);
+        if (!combinedBytes) {
+          const { fileToPdfBytes } = await import('../lib/any-to-pdf');
+          const parts: Uint8Array[] = [];
+          const failed: string[] = [];
+          let index = 0;
+          for (const { file } of files) {
+            try {
+              parts.push(await fileToPdfBytes(file));
+            } catch {
+              failed.push(file.name);
+            }
+            index += 1;
+            setProgress(10 + Math.round((index / files.length) * 70));
           }
-          index += 1;
-          setProgress(10 + Math.round((index / files.length) * 80));
+          if (!parts.length) throw new Error('None of the files could be converted.');
+          const merged = parts.length > 1 ? await mergePdfs(parts) : parts[0];
+          const document = await loadPdf(merged);
+          setCombinedBytes(merged);
+          setPageCount(document.getPageCount());
+          setPageOrder(document.getPageIndices());
+          setDeletedPages([]);
+          setPageRotations({});
+          setBlankAfter([]);
+          setCombineNote(failed.length ? `Skipped unreadable files: ${failed.join(', ')}` : '');
+          const { renderPdfPages } = await import('../lib/pdf-render');
+          const previews = await renderPdfPages(merged, { scale: 0.28, quality: 0.48 });
+          setPageThumbnails(previews.map((page) => URL.createObjectURL(page.blob)));
+          setProgress(100);
+          return;
         }
-        if (!parts.length) throw new Error('None of the files could be converted.');
-        pdfBlob(parts.length > 1 ? await mergePdfs(parts) : parts[0], 'combined.pdf');
-        if (failed.length) note = `Skipped unreadable files: ${failed.join(', ')}`;
+        const organized = await organizePdf(combinedBytes, pageOrder, deletedPages, pageRotations, blankAfter);
+        pdfBlob(organized, 'combined.pdf');
+        if (combineNote) note = combineNote;
       } else if (slug === 'merge') {
         pdfBlob(await mergePdfs(bytes), 'merged-document.pdf');
       } else if (slug === 'split') {
@@ -483,6 +525,8 @@ export default function ToolPage() {
     setPageRotations({});
     setPageThumbnails([]);
     setPageCount(0);
+    setCombinedBytes(null);
+    setCombineNote('');
     setError('');
     setResult(null);
   };
@@ -551,9 +595,10 @@ export default function ToolPage() {
           </div>
         )}
 
-        {slug === 'organize' && pageOrder.length > 0 && (
+        {(slug === 'organize' || (slug === 'files-to-pdf' && combinedBytes)) && pageOrder.length > 0 && (
           <div className="options-section">
-            <div className="options-title">Page order <span className="page-count">({pageCount} pages)</span></div>
+            <div className="options-title">{slug === 'files-to-pdf' ? 'Review pages — reorder, delete, or rotate before downloading' : 'Page order'} <span className="page-count">({pageCount} pages)</span></div>
+            {slug === 'files-to-pdf' && combineNote ? <div className="info-box" style={{ marginBottom: 10 }}>{combineNote}</div> : null}
             <div className="organize-pages">
               {pageOrder.map((page, index) => (
                 <div
@@ -657,7 +702,7 @@ export default function ToolPage() {
         <div className="process-row">
           <span className="privacy-note"><ShieldCheck size={14} /> Files never leave this device</span>
           <button className="primary-button" type="button" disabled={!files.length || busy} onClick={process}>
-            {busy ? <><LoaderCircle className="spin" size={15} /> Processing…</> : <><LockKeyhole size={14} /> Process document <ChevronRight size={15} /></>}
+            {busy ? <><LoaderCircle className="spin" size={15} /> Processing…</> : slug === 'files-to-pdf' && combinedBytes ? <><Download size={14} /> Download PDF</> : <><LockKeyhole size={14} /> Process document <ChevronRight size={15} /></>}
           </button>
         </div>
         {busy && <div className="progress-wrap"><div className="progress-caption"><span>Working in your browser</span><span>{progress}%</span></div><div className="progress-track"><span style={{ width: `${progress}%` }} /></div></div>}
